@@ -3,7 +3,6 @@
 #include <LiquidCrystal.h>
 #include <WiFiClient.h>
 #include <Arduino_JSON.h>
-#include <Ultrasonic.h>
 
 const char* ssid = "";
 const char* password = "";
@@ -12,7 +11,7 @@ const char* password = "";
 String urlPath = "";
 
 // initialize the library with the numbers of the interface pins
-LiquidCrystal lcd(D6, D5, D3, D2, D1, D0);
+LiquidCrystal lcd(D0, D1, D5, D6, D7, D8);
 
 void setup() {
   Serial.begin(9600); 
