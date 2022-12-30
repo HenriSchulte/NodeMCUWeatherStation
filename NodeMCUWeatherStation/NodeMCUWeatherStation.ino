@@ -4,11 +4,14 @@
 #include <WiFiClient.h>
 #include <Arduino_JSON.h>
 
-const char* ssid = "";
-const char* password = "";
+const String ssid = "";
+const String password = "";
+const String lat = "";
+const String lon = "";
+const String apiKey = "";
 
-//Your Domain name with URL path or IP address with path
-String urlPath = "";
+String urlPath = "http://api.openweathermap.org/data/2.5/weather?units=metric&lat=" +
+                 lat + "&lon=" + lon + "&appid=" + apiKey;
 
 // initialize the library with the numbers of the interface pins
 LiquidCrystal lcd(D0, D1, D5, D6, D7, D8);
@@ -98,6 +101,7 @@ double getCurrentTemp() {
   
   // Your Domain name with URL path or IP address with path
   http.begin(client, urlPath);
+  Serial.println("Making request to: " + urlPath);
   
   // Send HTTP GET request
   int httpResponseCode = http.GET();
@@ -106,7 +110,7 @@ double getCurrentTemp() {
     Serial.print("HTTP Response code: ");
     Serial.println(httpResponseCode);
     String response = http.getString();
-    //Serial.println(response);
+    Serial.println(response);
     double temp;
 
     // Decode JSON response
@@ -114,7 +118,7 @@ double getCurrentTemp() {
     if (JSON.typeof(responseJSON) == "undefined") {
       Serial.println("Parsing input failed!");
     } else {
-      temp = responseJSON["features"][0]["properties"]["value"];
+      temp = responseJSON["main"]["temp"];
       Serial.print("Temperature: ");
       Serial.print(temp);
       Serial.print("°C");
