@@ -13,7 +13,7 @@ const String apiKey = "";
 const String urlBase = "http://api.openweathermap.org/data/2.5/";
 String urlWeather = urlBase + "weather?units=metric&lat=" +
                  lat + "&lon=" + lon + "&appid=" + apiKey;
-String urlForecast = urlBase + "forecast?units=metric&lat=" +
+String urlForecast = urlBase + "forecast?units=metric&cnt=2&lat=" +
                  lat + "&lon=" + lon + "&appid=" + apiKey;
 
 // initialize the library with the numbers of the interface pins
@@ -26,9 +26,15 @@ int page = 0;
 const int maxPage = 1; // index for the last page
 bool nextPageOnUp = false; // flag for switching to next page when button is released
 
+// Current weather
 double currentTemp;
 double feelsLikeTemp;
 double windSpeed;
+
+// Forecast
+double forecastTemp;
+double forecastRain;
+String forecastDesc;
 
 
 void setup() {
@@ -49,9 +55,7 @@ void setup() {
   lcd.print("Connecting");
   while(WiFi.status() != WL_CONNECTED) {
     // blink
-    digitalWrite(ledPin, HIGH);
-    delay(250);
-    digitalWrite(ledPin, LOW);
+    blink(250);
     delay(250);
     Serial.print(".");
   }
@@ -60,6 +64,11 @@ void setup() {
   Serial.println(WiFi.localIP());
   digitalWrite(ledPin, HIGH); // turn LED on
 
+  // Call APIs
+  updateCurrentWeather();
+  updateForecast();
+
+  // Display weather screen
   displayCurrentTemp();
 }
 
@@ -88,6 +97,50 @@ void loop() {
 }
 
 
+void blink(int interval) {
+    digitalWrite(ledPin, LOW);
+    delay(interval);
+    digitalWrite(ledPin, HIGH);
+}
+
+
+JSONVar getAPIResponse(String url) {
+  WiFiClient client;
+  HTTPClient http;
+  
+  // Your Domain name with URL path or IP address with path
+  http.begin(client, url);
+  Serial.println("Making request to: " + url);
+  
+  // Send HTTP GET request
+  int httpResponseCode = http.GET();
+  
+  if (httpResponseCode > 0) {
+    Serial.print("HTTP Response code: ");
+    Serial.println(httpResponseCode);
+    String response = http.getString();
+    Serial.println(response);
+    
+    // Free resources
+    http.end();
+
+    // Decode JSON response
+    JSONVar responseJSON = JSON.parse(response);
+    if (JSON.typeof(responseJSON) == "undefined") {
+      Serial.println("Parsing input failed!");
+    } else {
+      // blink after update
+      blink(250);
+      return responseJSON;
+    }
+  }
+  else {
+    Serial.print("Error code: ");
+    Serial.println(httpResponseCode);
+  }
+}
+
+
 void displayCurrentTemp() {
   if (!currentTemp || !feelsLikeTemp) {
     updateCurrentWeather();
@@ -103,53 +156,35 @@ void displayCurrentTemp() {
 
 
 void updateCurrentWeather() {
-  WiFiClient client;
-  HTTPClient http;
-  
-  // Your Domain name with URL path or IP address with path
-  http.begin(client, urlWeather);
-  Serial.println("Making request to: " + urlWeather);
-  
-  // Send HTTP GET request
-  int httpResponseCode = http.GET();
-  
-  if (httpResponseCode > 0) {
-    Serial.print("HTTP Response code: ");
-    Serial.println(httpResponseCode);
-    String response = http.getString();
-    Serial.println(response);
-
-    // Decode JSON response
-    JSONVar responseJSON = JSON.parse(response);
-    if (JSON.typeof(responseJSON) == "undefined") {
-      Serial.println("Parsing input failed!");
-    } else {
-      currentTemp = responseJSON["main"]["temp"];
-      feelsLikeTemp = responseJSON["main"]["feels_like"];
-      windSpeed = responseJSON["wind"]["speed"];
-      Serial.print("Temperature: ");
-      Serial.print(currentTemp);
-      Serial.print("°C");
-      Serial.println();
-    }
-
-    // blink after update
-    digitalWrite(ledPin, LOW);
-    delay(250);
-    digitalWrite(ledPin, HIGH);
-  }
-  else {
-    Serial.print("Error code: ");
-    Serial.println(httpResponseCode);
-  }
-  // Free resources
-  http.end();
+    JSONVar responseJSON = getAPIResponse(urlWeather);
+    currentTemp = responseJSON["main"]["temp"];
+    feelsLikeTemp = responseJSON["main"]["feels_like"];
+    windSpeed = responseJSON["wind"]["speed"];
+    Serial.print("Temperature: ");
+    Serial.print(currentTemp);
+    Serial.print("°C");
+    Serial.println();
 }
 
 
 void displayForecast() {
+  if (!forecastTemp || !forecastDesc) {
+    updateForecast();
+  }
   lcd.setCursor(0, 0);
-  lcd.print("Forecast:");
+  lcd.print("Forecast: ");
+  lcd.print(forecastTemp);
   lcd.setCursor(0, 1);
-  lcd.print("Great weather");
+  lcd.print(forecastDesc);
+}
+
+
+void updateForecast() {
+  JSONVar responseJSON = getAPIResponse(urlForecast);
+  JSONVar forecast = responseJSON["list"][1]; // Select second forecast (3-6h from now);
+  forecastTemp = forecast["main"]["temp"];
+  forecastRain = forecast["rain"]["3h"];
+  forecastDesc = JSON.stringify(forecast["weather"][0]["description"]); // Use stringify to avoid unexplained crash during casting
+  forecastDesc.replace("\"", ""); // Remove quotation marks from stringify
+  forecastDesc[0] = toupper(forecastDesc[0]);
 }
