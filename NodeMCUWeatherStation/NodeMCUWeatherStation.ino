@@ -10,7 +10,10 @@ const String lat = "";
 const String lon = "";
 const String apiKey = "";
 
-String urlPath = "http://api.openweathermap.org/data/2.5/weather?units=metric&lat=" +
+const String urlBase = "http://api.openweathermap.org/data/2.5/";
+String urlWeather = urlBase + "weather?units=metric&lat=" +
+                 lat + "&lon=" + lon + "&appid=" + apiKey;
+String urlForecast = urlBase + "forecast?units=metric&lat=" +
                  lat + "&lon=" + lon + "&appid=" + apiKey;
 
 // initialize the library with the numbers of the interface pins
@@ -24,6 +27,9 @@ const int maxPage = 1; // index for the last page
 bool nextPageOnUp = false; // flag for switching to next page when button is released
 
 double currentTemp;
+double feelsLikeTemp;
+double windSpeed;
+
 
 void setup() {
   Serial.begin(9600); 
@@ -57,6 +63,7 @@ void setup() {
   displayCurrentTemp();
 }
 
+
 void loop() {
   if (digitalRead(buttonPin) == LOW) { // button is pressed
     if (nextPageOnUp == false) {
@@ -78,30 +85,30 @@ void loop() {
       }
     }
   }
-
-  
 }
 
+
 void displayCurrentTemp() {
-  if (!currentTemp) {
-    currentTemp = getCurrentTemp();
+  if (!currentTemp || !feelsLikeTemp) {
+    updateCurrentWeather();
   }
   // Display temperature
   lcd.setCursor(0, 0);
-  lcd.print("Current temp: ");
-  lcd.setCursor(0, 1);
+  lcd.print("Currently ");
   lcd.print(currentTemp);
-  lcd.print(" C ");
-  
+  lcd.setCursor(0, 1);
+  lcd.print("Feels like ");
+  lcd.print(feelsLikeTemp);
 }
 
-double getCurrentTemp() {
+
+void updateCurrentWeather() {
   WiFiClient client;
   HTTPClient http;
   
   // Your Domain name with URL path or IP address with path
-  http.begin(client, urlPath);
-  Serial.println("Making request to: " + urlPath);
+  http.begin(client, urlWeather);
+  Serial.println("Making request to: " + urlWeather);
   
   // Send HTTP GET request
   int httpResponseCode = http.GET();
@@ -111,16 +118,17 @@ double getCurrentTemp() {
     Serial.println(httpResponseCode);
     String response = http.getString();
     Serial.println(response);
-    double temp;
 
     // Decode JSON response
     JSONVar responseJSON = JSON.parse(response);
     if (JSON.typeof(responseJSON) == "undefined") {
       Serial.println("Parsing input failed!");
     } else {
-      temp = responseJSON["main"]["temp"];
+      currentTemp = responseJSON["main"]["temp"];
+      feelsLikeTemp = responseJSON["main"]["feels_like"];
+      windSpeed = responseJSON["wind"]["speed"];
       Serial.print("Temperature: ");
-      Serial.print(temp);
+      Serial.print(currentTemp);
       Serial.print("°C");
       Serial.println();
     }
@@ -129,8 +137,6 @@ double getCurrentTemp() {
     digitalWrite(ledPin, LOW);
     delay(250);
     digitalWrite(ledPin, HIGH);
-
-    return temp;
   }
   else {
     Serial.print("Error code: ");
@@ -139,6 +145,7 @@ double getCurrentTemp() {
   // Free resources
   http.end();
 }
+
 
 void displayForecast() {
   lcd.setCursor(0, 0);
